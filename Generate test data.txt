@@ -1,0 +1,143 @@
+using .NET 6 and Bogus (https://github.com/bchavez/Bogus) perform synthetic data generation. 
+Make sure to generate dependencies between generated datasets. Make sure to generate 100+ entries for each dataset. 
+Store generated test data in separate files in CSV format. 
+The generated test data represents an arbitrary dataset of movies, series, and credits related to them (one to many). 
+The generated test data should consist of two relations with the next structure: 
+Titles:
+	titles.id - numeric title identifier 
+	titles.title - textual movie (series) name 
+	titles.description - textual title description 
+	titles.release_year - should have a Common Era year format 
+	titles.age_certification - should be one of these: G, PG, PG-13, R, NC-17, U, U/A, A, S, AL, 6, 9, 12, 12A, 15, 18, 18R, R18, R21, M, MA15+, R16, R18+, X18, T, E, E10+, EC, C, CA, GP, M/PG, TV-Y, TV-Y7, TV-G, TV-PG, TV-14, TV-MA 
+	titles.runtime - should be a common title duration in minutes 
+	titles.genres - should contain a list of strings representing various movie (series) genres 
+	titles.production_country - should represent a country in ISO 3166-1 Alpha-3 code 
+	titles.seasons - should represent the number of seasons for series or be empty for movies 
+
+Credits:
+	credits.id - numeric credits identifier 
+	credits.title_id - corresponding title id 
+	credits.real_name - full credits member name 
+	credits.character_name - corresponding movie (series) character name 
+	credits.role - should represent corresponding role and be one of these: Director, Producer, Screenwriter, Actor, Actress, Cinematographer, Film Editor, Production Designer, Costume Designer, Music Composer 
+
+The generated test data should cover a wide range of scenarios, including positive, negative, and edge cases, to ensure comprehensive testing of the application's functionality. 
+The test data should accurately represent the expected input and output data types, formats, and values, ensuring that it is suitable for validating the application's functionality. 
+The test data should be diverse and include different combinations of inputs, ensuring that the application is tested against a variety of scenarios. 
+
+ChatGPT
+Here's an example of how you could use the Bogus library to generate your data according to your requirements.
+
+First, let's define the faker classes for generating the datasets for Titles and Credits:
+
+csharp
+Copy code
+public class Title
+{
+    public int Id { get; set; }
+    public string Title { get; set; }
+    public string Description { get; set; }
+    public int ReleaseYear { get; set; }
+    public string AgeCertification { get; set; }
+    public int Runtime { get; set; }
+    public List<string> Genres { get; set; }
+    public string ProductionCountry { get; set; }
+    public string Seasons { get; set; }
+}
+
+public class Credit
+{
+    public int Id { get; set; }
+    public int TitleId { get; set; }
+    public string RealName { get; set; }
+    public string CharacterName { get; set; }
+    public string Role { get; set; }
+}
+
+public class TitleFaker : Faker<Title>
+{
+    public TitleFaker()
+    {
+        // Define rules for each property here
+        RuleFor(t => t.Id, f => f.UniqueIndex);
+        RuleFor(t => t.Title, f => f.Lorem.Word());
+        RuleFor(t => t.Description, f => f.Lorem.Sentence());
+        RuleFor(t => t.ReleaseYear, f => f.Date.Past(50).Year);
+        RuleFor(t => t.AgeCertification, f => f.PickRandom(new List<string> { /* Age Certifications here */ }));
+        RuleFor(t => t.Runtime, f => f.Random.Int(0, 240));
+        RuleFor(t => t.Genres, f => new List<string> { f.Random.Word(), f.Random.Word(), f.Random.Word() });
+        RuleFor(t => t.ProductionCountry, f => f.Address.CountryCode());
+        RuleFor(t => t.Seasons, f => f.Random.Int(0, 10).ToString());
+    }
+}
+
+public class CreditFaker : Faker<Credit>
+{
+    public CreditFaker(IEnumerable<int> titleIds)
+    {
+        RuleFor(c => c.Id, f => f.UniqueIndex);
+        RuleFor(c => c.TitleId, f => f.PickRandom(titleIds));
+        RuleFor(c => c.RealName, f => f.Name.FullName());
+        RuleFor(c => c.CharacterName, f => f.Name.FirstName());
+        RuleFor(c => c.Role, f => f.PickRandom(new List<string> { /* Roles here */ }));
+    }
+}
+You could use these faker classes to generate the required data. Here's an example of how to generate 100 entries for each dataset and save them to CSV files:
+
+csharp
+Copy code
+public static void Main()
+{
+    var titleFaker = new TitleFaker();
+    var titles = titleFaker.Generate(100);
+
+    var titleIds = titles.Select(t => t.Id).ToList();
+    var creditFaker = new CreditFaker(titleIds);
+    var credits = creditFaker.Generate(100);
+
+    using var titleWriter = new StreamWriter("titles.csv");
+    using var titleCsv = new CsvWriter(titleWriter, CultureInfo.InvariantCulture);
+    titleCsv.WriteRecords(titles);
+
+    using var creditWriter = new StreamWriter("credits.csv");
+    using var creditCsv = new CsvWriter(creditWriter, CultureInfo.InvariantCulture);
+    creditCsv.WriteRecords(credits);
+}
+Note that the example uses CsvHelper to write the generated data to CSV files, which can be installed with dotnet add package CsvHelper.
+
+Also, make sure to update the lists of possible values for AgeCertification and Role properties according to
+
+
+
+
+
+User
+how to save this csv files locally?
+ChatGPT
+The code snippet provided above already includes the logic for saving the CSV files locally. The StreamWriter instances take care of creating files in the specified paths and the CsvWriter instances are used to write the generated data to these files.
+
+Here is a closer look at the relevant part of the code:
+
+csharp
+Copy code
+using var titleWriter = new StreamWriter("titles.csv");
+using var titleCsv = new CsvWriter(titleWriter, CultureInfo.InvariantCulture);
+titleCsv.WriteRecords(titles);
+
+using var creditWriter = new StreamWriter("credits.csv");
+using var creditCsv = new CsvWriter(creditWriter, CultureInfo.InvariantCulture);
+creditCsv.WriteRecords(credits);
+In this code, titles.csv and credits.csv will be created in the same directory as the one your program is running from. If you want to save the files in a different location, you can specify the full path like this:
+
+csharp
+Copy code
+using var titleWriter = new StreamWriter("C:\\path\\to\\your\\directory\\titles.csv");
+using var titleCsv = new CsvWriter(titleWriter, CultureInfo.InvariantCulture);
+titleCsv.WriteRecords(titles);
+
+using var creditWriter = new StreamWriter("C:\\path\\to\\your\\directory\\credits.csv");
+using var creditCsv = new CsvWriter(creditWriter, CultureInfo.InvariantCulture);
+creditCsv.WriteRecords(credits);
+Just replace "C:\\path\\to\\your\\directory" with the actual path where you want the CSV files to be saved.
+
+Note: Remember that if your program does not have permission to write to the specified directory, you might encounter a System.UnauthorizedAccessException.
